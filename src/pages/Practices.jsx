@@ -2,6 +2,7 @@ import React from 'react'
 import Navbar from '../components/Navbar'
 import PracticeList from '../components/PracticeList'
 import PracticeSubmit from '../components/PracticeSubmit'
+import Categories from '../components/Categories'
 
 function PracticesPage() {
   return (
@@ -14,6 +15,7 @@ function PracticesPage() {
             <p className="mt-2 text-white/80">Explore and contribute practical sustainability initiatives happening around the world.</p>
           </div>
         </section>
+        <Categories />
         <PracticeSubmit />
         <PracticeList />
       </main>

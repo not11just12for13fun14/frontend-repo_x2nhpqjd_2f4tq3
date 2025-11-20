@@ -10,7 +10,9 @@ const PracticeSubmit = () => {
     category: '',
     tags: '',
     impact_score: '',
-    source_url: ''
+    source_url: '',
+    latitude: '',
+    longitude: ''
   })
   const [status, setStatus] = useState('')
 
@@ -28,6 +30,8 @@ const PracticeSubmit = () => {
         tags: form.tags ? form.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
         impact_score: form.impact_score ? Number(form.impact_score) : undefined,
         source_url: form.source_url || undefined,
+        latitude: form.latitude ? Number(form.latitude) : undefined,
+        longitude: form.longitude ? Number(form.longitude) : undefined,
       }
       const res = await fetch(`${API_BASE}/practices`, {
         method: 'POST',
@@ -36,7 +40,7 @@ const PracticeSubmit = () => {
       })
       if (!res.ok) throw new Error('Submission failed')
       setStatus('Thanks! Your sustainable practice was submitted.')
-      setForm({ title: '', city: '', description: '', category: '', tags: '', impact_score: '', source_url: '' })
+      setForm({ title: '', city: '', description: '', category: '', tags: '', impact_score: '', source_url: '', latitude: '', longitude: '' })
     } catch (e) {
       setStatus(e.message)
     }
@@ -50,13 +54,17 @@ const PracticeSubmit = () => {
           <input name="title" value={form.title} onChange={onChange} placeholder="Practice title" required className="w-full rounded-lg bg-slate-900/60 px-3 py-2 text-white placeholder-white/50 outline-none border border-white/10" />
           <input name="city" value={form.city} onChange={onChange} placeholder="City" required className="w-full rounded-lg bg-slate-900/60 px-3 py-2 text-white placeholder-white/50 outline-none border border-white/10" />
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <input name="category" value={form.category} onChange={onChange} placeholder="Category (transport, energy, waste)" className="w-full rounded-lg bg-slate-900/60 px-3 py-2 text-white placeholder-white/50 outline-none border border-white/10" />
           <input name="impact_score" type="number" min="1" max="5" value={form.impact_score} onChange={onChange} placeholder="Impact (1-5)" className="w-full rounded-lg bg-slate-900/60 px-3 py-2 text-white placeholder-white/50 outline-none border border-white/10" />
+          <input name="source_url" value={form.source_url} onChange={onChange} placeholder="Reference URL (optional)" className="w-full rounded-lg bg-slate-900/60 px-3 py-2 text-white placeholder-white/50 outline-none border border-white/10" />
         </div>
         <textarea name="description" value={form.description} onChange={onChange} placeholder="Description" rows="3" className="w-full rounded-lg bg-slate-900/60 px-3 py-2 text-white placeholder-white/50 outline-none border border-white/10" />
         <input name="tags" value={form.tags} onChange={onChange} placeholder="Tags (comma separated)" className="w-full rounded-lg bg-slate-900/60 px-3 py-2 text-white placeholder-white/50 outline-none border border-white/10" />
-        <input name="source_url" value={form.source_url} onChange={onChange} placeholder="Reference URL (optional)" className="w-full rounded-lg bg-slate-900/60 px-3 py-2 text-white placeholder-white/50 outline-none border border-white/10" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <input name="latitude" value={form.latitude} onChange={onChange} placeholder="Latitude (e.g., 48.8566)" className="w-full rounded-lg bg-slate-900/60 px-3 py-2 text-white placeholder-white/50 outline-none border border-white/10" />
+          <input name="longitude" value={form.longitude} onChange={onChange} placeholder="Longitude (e.g., 2.3522)" className="w-full rounded-lg bg-slate-900/60 px-3 py-2 text-white placeholder-white/50 outline-none border border-white/10" />
+        </div>
         <div className="flex items-center gap-3">
           <button type="submit" className="rounded-lg bg-white/90 text-slate-900 px-5 py-2.5 font-medium shadow-xl shadow-emerald-500/20 hover:bg-white transition">Submit</button>
           {status && <p className="text-sm text-white/80">{status}</p>}

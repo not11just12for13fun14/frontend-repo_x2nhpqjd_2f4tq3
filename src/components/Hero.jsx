@@ -18,10 +18,10 @@ const Hero = () => {
             Interactive 3D cover • Digital Art Gallery
           </div>
           <h1 className="mt-6 text-4xl sm:text-6xl font-bold tracking-tight text-white drop-shadow-[0_6px_40px_rgba(56,189,248,0.25)]">
-            Curate. Discover. Immerse.
+            Diversity / Diverse City
           </h1>
           <p className="mt-4 text-lg sm:text-xl text-white/80">
-            A modern gallery experience featuring vibrant digital works, interactive motion, and a touch of glass.
+            A modern gallery experience featuring vibrant digital works and interactive motion.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <a href="#gallery" className="rounded-lg bg-white/90 text-slate-900 px-5 py-2.5 font-medium shadow-xl shadow-cyan-500/20 hover:bg-white transition">

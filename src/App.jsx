@@ -14,7 +14,7 @@ function App() {
         <SubmitForm />
         <footer id="about" className="mx-auto max-w-6xl px-6 py-16 text-white/70">
           <p>
-            Built with an interactive glass-inspired 3D cover, this gallery lets you browse and submit digital artworks in a clean, modern space.
+            Built with an interactive 3D cover, this gallery lets you browse and submit digital artworks in a clean, modern space.
           </p>
         </footer>
       </main>
