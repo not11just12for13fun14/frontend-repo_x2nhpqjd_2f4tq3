@@ -17,42 +17,125 @@ const disciplines = [
   'Poetry',
 ]
 
-function useRecorder() {
+function pickSupportedMime(preferAudioOnly) {
+  const candidates = preferAudioOnly
+    ? [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/ogg;codecs=opus',
+      ]
+    : [
+        'video/webm;codecs=vp9,opus',
+        'video/webm;codecs=vp8,opus',
+        'video/webm',
+      ]
+  for (const mt of candidates) {
+    if (window.MediaRecorder && MediaRecorder.isTypeSupported?.(mt)) return mt
+  }
+  // Fallback
+  return preferAudioOnly ? 'audio/webm' : 'video/webm'
+}
+
+function useRecorder({ audioOnly = false, maxDurationSec = 60 } = {}) {
   const [recording, setRecording] = useState(false)
+  const [countdown, setCountdown] = useState(0)
+  const [elapsed, setElapsed] = useState(0)
   const [previewUrl, setPreviewUrl] = useState('')
   const [blob, setBlob] = useState(null)
-  const mediaRef = useRef(null)
+  const [error, setError] = useState('')
   const chunksRef = useRef([])
   const streamRef = useRef(null)
   const recorderRef = useRef(null)
+  const timerRef = useRef(null)
 
   const start = async () => {
+    setError('')
     setPreviewUrl('')
     setBlob(null)
     chunksRef.current = []
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true })
-    streamRef.current = stream
-    const rec = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9,opus' })
-    recorderRef.current = rec
-    rec.ondataavailable = (e) => {
-      if (e.data && e.data.size > 0) chunksRef.current.push(e.data)
-    }
-    rec.onstop = () => {
-      const b = new Blob(chunksRef.current, { type: 'video/webm' })
-      setBlob(b)
-      const url = URL.createObjectURL(b)
-      setPreviewUrl(url)
-      // stop tracks
-      streamRef.current.getTracks().forEach(t => t.stop())
+    setElapsed(0)
+
+    // Short countdown UX
+    setCountdown(3)
+    await new Promise((resolve) => {
+      const iv = setInterval(() => {
+        setCountdown((c) => {
+          if (c <= 1) {
+            clearInterval(iv)
+            resolve()
+            return 0
+          }
+          return c - 1
+        })
+      }, 450)
+    })
+
+    try {
+      const constraints = {
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+        video: audioOnly
+          ? false
+          : {
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
+              frameRate: { ideal: 30 },
+            },
+      }
+      const stream = await navigator.mediaDevices.getUserMedia(constraints)
+      streamRef.current = stream
+
+      const mimeType = pickSupportedMime(audioOnly)
+      const rec = new MediaRecorder(stream, { mimeType })
+      recorderRef.current = rec
+      rec.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) chunksRef.current.push(e.data)
+      }
+      rec.onstop = () => {
+        const type = mimeType || (audioOnly ? 'audio/webm' : 'video/webm')
+        const b = new Blob(chunksRef.current, { type })
+        setBlob(b)
+        const url = URL.createObjectURL(b)
+        setPreviewUrl(url)
+        // stop tracks
+        try {
+          streamRef.current?.getTracks?.().forEach((t) => t.stop())
+        } catch {}
+        streamRef.current = null
+        // stop timer
+        if (timerRef.current) {
+          clearInterval(timerRef.current)
+          timerRef.current = null
+        }
+      }
+      rec.start(500)
+      setRecording(true)
+
+      // elapsed timer and auto-stop
+      const startedAt = Date.now()
+      timerRef.current = setInterval(() => {
+        const sec = Math.floor((Date.now() - startedAt) / 1000)
+        setElapsed(sec)
+        if (sec >= maxDurationSec) {
+          stop()
+        }
+      }, 200)
+    } catch (e) {
+      setError(e?.message || 'Unable to start recording')
+      setRecording(false)
+      try {
+        streamRef.current?.getTracks?.().forEach((t) => t.stop())
+      } catch {}
       streamRef.current = null
     }
-    rec.start(500)
-    setRecording(true)
   }
 
   const stop = () => {
     if (recorderRef.current && recording) {
-      recorderRef.current.stop()
+      try { recorderRef.current.stop() } catch {}
       setRecording(false)
     }
   }
@@ -61,9 +144,17 @@ function useRecorder() {
     setPreviewUrl('')
     setBlob(null)
     chunksRef.current = []
+    setElapsed(0)
+    setError('')
   }
 
-  return { recording, previewUrl, blob, start, stop, reset }
+  return { recording, countdown, elapsed, previewUrl, blob, error, start, stop, reset }
+}
+
+function formatTime(sec) {
+  const m = Math.floor(sec / 60).toString().padStart(2, '0')
+  const s = Math.floor(sec % 60).toString().padStart(2, '0')
+  return `${m}:${s}`
 }
 
 function PerformancesPage() {
@@ -82,7 +173,10 @@ function PerformancesPage() {
   const [items, setItems] = useState([])
   const [q, setQ] = useState({ city: '', discipline: '' })
 
-  const { recording, previewUrl, blob, start, stop, reset } = useRecorder()
+  const [audioOnly, setAudioOnly] = useState(false)
+  const [maxDurationSec, setMaxDurationSec] = useState(60)
+
+  const { recording, countdown, elapsed, previewUrl, blob, error, start, stop, reset } = useRecorder({ audioOnly, maxDurationSec })
 
   const onChange = (e) => setForm({ ...form, [e.target.name]: e.target.value })
 
@@ -141,17 +235,24 @@ function PerformancesPage() {
 
   const uploadRecording = async () => {
     if (!blob) return
+    setStatus('Uploading...')
     const fd = new FormData()
-    fd.append('file', new File([blob], `recording-${Date.now()}.webm`, { type: 'video/webm' }))
-    const res = await fetch(`${API_BASE}/upload`, { method: 'POST', body: fd })
-    if (!res.ok) { setStatus('Upload failed'); return }
-    const data = await res.json()
-    // Prepend to recording_urls input
-    const current = form.recording_urls ? form.recording_urls + ', ' : ''
-    setForm({ ...form, recording_urls: current + (data.url || '') })
-    setStatus('Recording uploaded')
-    reset()
+    const filename = `${audioOnly ? 'audio' : 'recording'}-${Date.now()}.${audioOnly ? 'webm' : 'webm'}`
+    fd.append('file', new File([blob], filename, { type: blob.type || (audioOnly ? 'audio/webm' : 'video/webm') }))
+    try {
+      const res = await fetch(`${API_BASE}/upload`, { method: 'POST', body: fd })
+      if (!res.ok) { setStatus('Upload failed'); return }
+      const data = await res.json()
+      const current = form.recording_urls ? form.recording_urls + ', ' : ''
+      setForm({ ...form, recording_urls: current + (data.url || '') })
+      setStatus('Recording uploaded')
+      reset()
+    } catch (e) {
+      setStatus('Upload failed')
+    }
   }
+
+  const sizeMB = blob ? (blob.size / (1024 * 1024)).toFixed(2) : null
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
@@ -187,15 +288,38 @@ function PerformancesPage() {
             </form>
 
             <div className="mt-6 border-t border-white/10 pt-4">
-              <h3 className="font-medium">Record a clip (beta)</h3>
-              <div className="mt-2 flex items-center gap-2">
-                {!recording && <button onClick={start} className="rounded bg-emerald-400/90 text-slate-900 px-3 py-1">Start</button>}
+              <h3 className="font-medium">Record a clip</h3>
+              <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" className="h-4 w-4" checked={audioOnly} onChange={(e)=>setAudioOnly(e.target.checked)} />
+                  Audio-only
+                </label>
+                <label className="text-sm">
+                  <span className="mr-2">Max length</span>
+                  <select className="rounded bg-slate-900/60 border border-white/10 px-2 py-1" value={maxDurationSec} onChange={(e)=>setMaxDurationSec(Number(e.target.value))}>
+                    <option value={30}>30s</option>
+                    <option value={60}>60s</option>
+                    <option value={120}>120s</option>
+                  </select>
+                </label>
+                <div className="text-sm text-white/70 flex items-center">{recording ? `Elapsed ${formatTime(elapsed)}` : (blob ? `${sizeMB} MB` : 'Ready')}</div>
+              </div>
+
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                {!recording && !countdown && <button onClick={start} className="rounded bg-emerald-400/90 text-slate-900 px-3 py-1">Start</button>}
+                {countdown > 0 && <span className="rounded bg-amber-400/90 text-slate-900 px-3 py-1">{countdown}</span>}
                 {recording && <button onClick={stop} className="rounded bg-rose-400/90 text-slate-900 px-3 py-1">Stop</button>}
                 {previewUrl && <button onClick={uploadRecording} className="rounded bg-white/90 text-slate-900 px-3 py-1">Upload</button>}
                 {previewUrl && <button onClick={reset} className="rounded bg-white/20 px-3 py-1">Reset</button>}
+                {error && <span className="text-rose-300 text-sm ml-2">{error}</span>}
               </div>
+
               {previewUrl && (
-                <video className="mt-3 w-full rounded-lg border border-white/10" src={previewUrl} controls />
+                audioOnly ? (
+                  <audio className="mt-3 w-full" src={previewUrl} controls />
+                ) : (
+                  <video className="mt-3 w-full rounded-lg border border-white/10" src={previewUrl} controls />
+                )
               )}
               {!previewUrl && recording && (
                 <div className="mt-3 text-sm text-white/70">Recording... stop to preview.</div>
