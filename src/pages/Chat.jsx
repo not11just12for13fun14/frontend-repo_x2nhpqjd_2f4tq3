@@ -38,6 +38,10 @@ function ChatPage() {
   const [online, setOnline] = useState(0)
   const [typing, setTyping] = useState('')
 
+  // moderation state
+  const [modEnabled, setModEnabled] = useState(false)
+  const [modPass, setModPass] = useState(localStorage.getItem('diversecity_mod_pass') || '')
+
   const wsRef = useRef(null)
   const typingTimeoutRef = useRef(null)
 
@@ -115,16 +119,36 @@ function ChatPage() {
     try { wsRef.current?.send(JSON.stringify({ type: 'typing', author: author || 'Anon' })) } catch {}
   }
 
+  const modHeaders = () => modEnabled && modPass ? { 'X-Role': 'moderator', 'X-Admin-Token': modPass } : {}
+
   const flagMessage = async (id) => {
-    await fetch(`${API_BASE}/chat/${id}/flag`, { method: 'POST' })
-    setItems(prev => prev.map(m => m._id === id ? { ...m, flagged: true } : m))
+    const res = await fetch(`${API_BASE}/chat/${id}/flag`, { method: 'POST', headers: { ...modHeaders() } })
+    if (res.status === 403) {
+      alert('Moderator token required. Enter a valid pass above and enable moderator mode.')
+      return
+    }
+    if (res.ok) setItems(prev => prev.map(m => m._id === id ? { ...m, flagged: true } : m))
   }
 
   const deleteMessage = async (id) => {
     const ok = confirm('Delete this message?')
     if (!ok) return
-    const res = await fetch(`${API_BASE}/chat/${id}`, { method: 'DELETE' })
+    const res = await fetch(`${API_BASE}/chat/${id}`, { method: 'DELETE', headers: { ...modHeaders() } })
+    if (res.status === 403) {
+      alert('Moderator token required. Enter a valid pass above and enable moderator mode.')
+      return
+    }
     if (res.ok) setItems(prev => prev.filter(m => m._id !== id))
+  }
+
+  const handleToggleMod = (checked) => {
+    setModEnabled(checked)
+    if (checked && modPass) localStorage.setItem('diversecity_mod_pass', modPass)
+  }
+
+  const handleSetPass = (v) => {
+    setModPass(v)
+    localStorage.setItem('diversecity_mod_pass', v)
   }
 
   return (
@@ -133,11 +157,18 @@ function ChatPage() {
       <main className="pt-20">
         <section className="mx-auto max-w-6xl px-6 py-10">
           <div className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur">
-            <div className="flex items-center justify-between gap-3">
-              <h1 className="text-3xl font-bold">Community Chat</h1>
-              <div className="text-sm text-white/70">Online: {online}</div>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <h1 className="text-3xl font-bold">Community Chat</h1>
+                <p className="mt-1 text-white/70">Share updates, artworks, pictures and videos via links. Rooms by category.</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-white/60">Moderator</label>
+                <input type="checkbox" checked={modEnabled} onChange={(e)=>handleToggleMod(e.target.checked)} />
+                <input value={modPass} onChange={(e)=>handleSetPass(e.target.value)} placeholder="Passcode" className="rounded bg-slate-900/60 px-2 py-1 text-xs border border-white/10" />
+                <div className="text-xs text-white/70">Online: {online}</div>
+              </div>
             </div>
-            <p className="mt-2 text-white/80">Share updates, artworks, pictures and videos via links. Rooms by category.</p>
             <form onSubmit={send} className="mt-4 grid grid-cols-1 md:grid-cols-6 gap-3">
               <input value={author} onChange={(e)=>setAuthor(e.target.value)} placeholder="Your name" className="rounded-lg bg-slate-900/60 px-3 py-2 border border-white/10" />
               <input value={avatar} onChange={(e)=>setAvatar(e.target.value)} placeholder="Avatar URL (optional)" className="rounded-lg bg-slate-900/60 px-3 py-2 border border-white/10 md:col-span-2" />
@@ -167,8 +198,8 @@ function ChatPage() {
                       </div>
                     )}
                     <div className="mt-2 flex gap-3 text-xs text-white/60">
-                      {!m.flagged && <button onClick={()=>flagMessage(m._id)} className="hover:text-rose-300">Flag</button>}
-                      <button onClick={()=>deleteMessage(m._id)} className="hover:text-rose-300">Delete</button>
+                      {!m.flagged && <button onClick={()=>flagMessage(m._id)} className={`hover:text-rose-300 ${!modEnabled ? 'opacity-60' : ''}`}>Flag</button>}
+                      <button onClick={()=>deleteMessage(m._id)} className={`hover:text-rose-300 ${!modEnabled ? 'opacity-60' : ''}`}>Delete</button>
                     </div>
                   </div>
                 </div>

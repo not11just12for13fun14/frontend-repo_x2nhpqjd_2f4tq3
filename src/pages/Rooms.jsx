@@ -44,6 +44,10 @@ function RoomsPage() {
   const [online, setOnline] = useState(0)
   const [typing, setTyping] = useState('')
 
+  // moderation state
+  const [modEnabled, setModEnabled] = useState(false)
+  const [modPass, setModPass] = useState(localStorage.getItem('diversecity_mod_pass') || '')
+
   const wsRef = useRef(null)
   const typingTimeoutRef = useRef(null)
 
@@ -127,15 +131,25 @@ function RoomsPage() {
     if (res.ok) { setPin('') }
   }
 
+  const modHeaders = () => modEnabled && modPass ? { 'X-Role': 'moderator', 'X-Admin-Token': modPass } : {}
+
   const flagMessage = async (m) => {
-    await fetch(`${API_BASE}/rooms/${activeRoom._id}/messages/${m._id}/flag`, { method: 'POST' })
-    setActiveRoom(r => r ? { ...r, messages: (r.messages||[]).map(x => x._id===m._id ? { ...x, flagged: true } : x) } : r)
+    const res = await fetch(`${API_BASE}/rooms/${activeRoom._id}/messages/${m._id}/flag`, { method: 'POST', headers: { ...modHeaders() } })
+    if (res.status === 403) {
+      alert('Moderator token required. Enter a valid pass above and enable moderator mode.')
+      return
+    }
+    if (res.ok) setActiveRoom(r => r ? { ...r, messages: (r.messages||[]).map(x => x._id===m._id ? { ...x, flagged: true } : x) } : r)
   }
 
   const deleteMessage = async (m) => {
     const ok = confirm('Delete this message?')
     if (!ok) return
-    const res = await fetch(`${API_BASE}/rooms/${activeRoom._id}/messages/${m._id}`, { method: 'DELETE' })
+    const res = await fetch(`${API_BASE}/rooms/${activeRoom._id}/messages/${m._id}`, { method: 'DELETE', headers: { ...modHeaders() } })
+    if (res.status === 403) {
+      alert('Moderator token required. Enter a valid pass above and enable moderator mode.')
+      return
+    }
     if (res.ok) setActiveRoom(r => r ? { ...r, messages: (r.messages||[]).filter(x => x._id!==m._id) } : r)
   }
 
@@ -174,7 +188,15 @@ function RoomsPage() {
                   <input value={pin} onChange={(e)=>setPin(e.target.value)} placeholder="Media URL to pin" className="flex-1 rounded-lg bg-slate-900/60 px-3 py-2 border border-white/10" />
                   <button onClick={pinMedia} className="rounded-lg bg-white/90 text-slate-900 px-4">Pin</button>
                 </div>
-                <div className="mt-2 text-xs text-white/60">Online: {online} {typing && <span className="ml-2">• {typing}</span>}</div>
+                <div className="mt-2 flex items-center gap-2 text-xs text-white/60">
+                  <span>Online: {online}</span>
+                  <div className="ml-auto flex items-center gap-1">
+                    <label className="text-white/60">Moderator</label>
+                    <input type="checkbox" checked={modEnabled} onChange={(e)=>setModEnabled(e.target.checked)} />
+                    <input value={modPass} onChange={(e)=>{ setModPass(e.target.value); localStorage.setItem('diversecity_mod_pass', e.target.value) }} placeholder="Passcode" className="rounded bg-slate-900/60 px-2 py-1 text-xs border border-white/10" />
+                  </div>
+                  {typing && <span className="ml-2">• {typing}</span>}
+                </div>
               </div>
             )}
           </div>
@@ -235,8 +257,8 @@ function RoomsPage() {
                             </div>
                           )}
                           <div className="mt-1 flex gap-3 text-[11px] text-white/60">
-                            {!m.flagged && <button onClick={()=>flagMessage(m)} className="hover:text-rose-300">Flag</button>}
-                            <button onClick={()=>deleteMessage(m)} className="hover:text-rose-300">Delete</button>
+                            {!m.flagged && <button onClick={()=>flagMessage(m)} className={`hover:text-rose-300 ${!modEnabled ? 'opacity-60' : ''}`}>Flag</button>}
+                            <button onClick={()=>deleteMessage(m)} className={`hover:text-rose-300 ${!modEnabled ? 'opacity-60' : ''}`}>Delete</button>
                           </div>
                         </div>
                       </div>

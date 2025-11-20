@@ -3,12 +3,12 @@
 > vite
 
 
-  VITE v5.4.20  ready in 203 ms
+  VITE v5.4.20  ready in 223 ms
 
   ➜  Local:   http://localhost:3000/
   ➜  Network: http://172.20.35.23:3000/
-7:12:30 PM [vite] Pre-transform error: Failed to resolve import "leaflet/dist/leaflet.css" from "src/pages/Map.jsx". Does the file exist?
-7:12:32 PM [vite] Internal server error: Failed to resolve import "leaflet/dist/leaflet.css" from "src/pages/Map.jsx". Does the file exist?
+7:41:26 PM [vite] Pre-transform error: Failed to resolve import "leaflet/dist/leaflet.css" from "src/pages/Map.jsx". Does the file exist?
+7:41:27 PM [vite] Internal server error: Failed to resolve import "leaflet/dist/leaflet.css" from "src/pages/Map.jsx". Does the file exist?
   Plugin: vite:import-analysis
   File: /home/workspace/src/pages/Map.jsx:3:7
   2  |  import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -27,7 +27,7 @@
       at async PluginContainer.transform (file:///home/workspace/node_modules/vite/dist/node/chunks/dep-D_zLpgQd.js:49099:18)
       at async loadAndTransform (file:///home/workspace/node_modules/vite/dist/node/chunks/dep-D_zLpgQd.js:51977:27)
       at async viteTransformMiddleware (file:///home/workspace/node_modules/vite/dist/node/chunks/dep-D_zLpgQd.js:62105:24)
-7:12:59 PM [vite] Internal server error: Failed to resolve import "leaflet/dist/leaflet.css" from "src/pages/Map.jsx". Does the file exist?
+7:41:56 PM [vite] Internal server error: Failed to resolve import "leaflet/dist/leaflet.css" from "src/pages/Map.jsx". Does the file exist?
   Plugin: vite:import-analysis
   File: /home/workspace/src/pages/Map.jsx:3:7
   2  |  import React, { useEffect, useMemo, useRef, useState } from "react";
