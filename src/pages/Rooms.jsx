@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import Navbar from '../components/Navbar'
 
 const API_BASE = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'
@@ -6,6 +6,17 @@ const API_BASE = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'
 const disciplines = [
   'Architecture','Performing Art','Dance','Music','Cinema','Photography','Theater','Littérature','Puppets Art','Slam','Poetry'
 ]
+
+function toWsUrl(path) {
+  try {
+    const httpUrl = new URL(API_BASE)
+    const isSecure = httpUrl.protocol === 'https:'
+    const wsProto = isSecure ? 'wss:' : 'ws:'
+    return `${wsProto}//${httpUrl.host}${path}`
+  } catch {
+    return API_BASE.replace(/^http/, 'ws') + path
+  }
+}
 
 function RoomsPage() {
   const [form, setForm] = useState({ title: '', discipline: '' })
@@ -16,6 +27,11 @@ function RoomsPage() {
   const [text, setText] = useState('')
   const [media, setMedia] = useState('')
   const [pin, setPin] = useState('')
+  const [online, setOnline] = useState(0)
+  const [typing, setTyping] = useState('')
+
+  const wsRef = useRef(null)
+  const typingTimeoutRef = useRef(null)
 
   const fetchRooms = async () => {
     const url = new URL(`${API_BASE}/rooms`)
@@ -43,6 +59,35 @@ function RoomsPage() {
     const res = await fetch(`${API_BASE}/rooms/${room._id}/messages`)
     const data = await res.json().catch(()=>({items:[]}))
     setActiveRoom(r => r ? { ...r, messages: data.items || [] } : null)
+
+    // connect realtime for this room
+    try { wsRef.current?.close() } catch {}
+    const ws = new WebSocket(toWsUrl(`/ws/rooms/${room._id}`))
+    wsRef.current = ws
+
+    ws.onmessage = (ev) => {
+      try {
+        const msg = JSON.parse(ev.data)
+        if (msg.type === 'presence') {
+          if (typeof msg.count === 'number') setOnline(msg.count)
+        } else if (msg.type === 'typing') {
+          const who = msg.author || 'Someone'
+          setTyping(`${who} is typing…`)
+          clearTimeout(typingTimeoutRef.current)
+          typingTimeoutRef.current = setTimeout(() => setTyping(''), 2000)
+        } else if (msg.type === 'message' && msg.item) {
+          setActiveRoom(r => r ? { ...r, messages: [...(r.messages||[]), msg.item] } : r)
+        } else if (msg.type === 'pin') {
+          setActiveRoom(r => r ? { ...r, pinned_media: [...(r.pinned_media||[]), msg.url] } : r)
+        }
+      } catch {}
+    }
+
+    ws.onopen = () => {
+      const iv = setInterval(() => { try { ws.send(JSON.stringify({ type: 'ping' })) } catch {} }, 20000)
+      ws._pingIv = iv
+    }
+    ws.onclose = () => { if (ws._pingIv) clearInterval(ws._pingIv) }
   }
 
   const sendMessage = async (e) => {
@@ -55,14 +100,17 @@ function RoomsPage() {
       })
     })
     setText(''); setMedia('')
-    loadMessages(activeRoom)
+  }
+
+  const notifyTyping = () => {
+    try { wsRef.current?.send(JSON.stringify({ type: 'typing', author: author || 'Anon' })) } catch {}
   }
 
   const pinMedia = async () => {
     if (!activeRoom || !pin) return
     const fd = new FormData(); fd.append('url', pin)
     const res = await fetch(`${API_BASE}/rooms/${activeRoom._id}/pin`, { method: 'POST', body: fd })
-    if (res.ok) { setPin(''); fetchRooms(); loadMessages(activeRoom) }
+    if (res.ok) { setPin('') }
   }
 
   return (
@@ -89,7 +137,7 @@ function RoomsPage() {
             {activeRoom && (
               <div className="mt-6 border-t border-white/10 pt-4">
                 <h3 className="font-medium">Active Room: {activeRoom.title}</h3>
-                <div className="mt-2 text-sm text-white/70">Pinned media:</div>
+                <div className="mt-2 text-sm text-white/70">Pinned media:</n>
                 <div className="mt-1 flex flex-wrap gap-2">
                   {(activeRoom.pinned_media || []).map((u, i) => (
                     <a key={i} href={u} target="_blank" className="rounded bg-white/10 px-2 py-1 text-xs hover:bg-white/20">Pin {i+1}</a>
@@ -100,6 +148,7 @@ function RoomsPage() {
                   <input value={pin} onChange={(e)=>setPin(e.target.value)} placeholder="Media URL to pin" className="flex-1 rounded-lg bg-slate-900/60 px-3 py-2 border border-white/10" />
                   <button onClick={pinMedia} className="rounded-lg bg-white/90 text-slate-900 px-4">Pin</button>
                 </div>
+                <div className="mt-2 text-xs text-white/60">Online: {online} {typing && <span className="ml-2">• {typing}</span>}</div>
               </div>
             )}
           </div>
@@ -140,7 +189,7 @@ function RoomsPage() {
                 <form onSubmit={sendMessage} className="mt-2 grid grid-cols-1 md:grid-cols-4 gap-2">
                   <input value={author} onChange={(e)=>setAuthor(e.target.value)} placeholder="Your name" className="rounded-lg bg-slate-900/60 px-3 py-2 border border-white/10" />
                   <input value={media} onChange={(e)=>setMedia(e.target.value)} placeholder="Media URLs" className="rounded-lg bg-slate-900/60 px-3 py-2 border border-white/10 md:col-span-2" />
-                  <input value={text} onChange={(e)=>setText(e.target.value)} placeholder="Message" className="rounded-lg bg-slate-900/60 px-3 py-2 border border-white/10 md:col-span-3" />
+                  <input value={text} onChange={(e)=>{setText(e.target.value); notifyTyping()}} placeholder="Message" className="rounded-lg bg-slate-900/60 px-3 py-2 border border-white/10 md:col-span-3" />
                   <button className="rounded-lg bg-white/90 text-slate-900 px-5 py-2 font-medium">Send</button>
                 </form>
                 <div className="mt-3 space-y-2 max-h-80 overflow-auto pr-1">

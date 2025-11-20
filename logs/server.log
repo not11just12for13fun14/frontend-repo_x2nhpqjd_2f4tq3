@@ -3,12 +3,14 @@
 > vite
 
 
-  VITE v5.4.20  ready in 236 ms
+  VITE v5.4.20  ready in 240 ms
 
   ➜  Local:   http://localhost:3000/
   ➜  Network: http://172.20.35.23:3000/
-6:43:38 PM [vite] Pre-transform error: Failed to resolve import "leaflet/dist/leaflet.css" from "src/pages/Map.jsx". Does the file exist?
-6:43:39 PM [vite] Internal server error: Failed to resolve import "leaflet/dist/leaflet.css" from "src/pages/Map.jsx". Does the file exist?
+6:48:21 PM [vite] Pre-transform error: Transform failed with 1 error:
+/home/workspace/src/pages/Rooms.jsx:140:75: ERROR: Unexpected closing "n" tag does not match opening "div" tag
+6:48:21 PM [vite] Pre-transform error: Failed to resolve import "leaflet/dist/leaflet.css" from "src/pages/Map.jsx". Does the file exist?
+6:48:22 PM [vite] Internal server error: Failed to resolve import "leaflet/dist/leaflet.css" from "src/pages/Map.jsx". Does the file exist?
   Plugin: vite:import-analysis
   File: /home/workspace/src/pages/Map.jsx:3:7
   2  |  import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -27,7 +29,30 @@
       at async PluginContainer.transform (file:///home/workspace/node_modules/vite/dist/node/chunks/dep-D_zLpgQd.js:49099:18)
       at async loadAndTransform (file:///home/workspace/node_modules/vite/dist/node/chunks/dep-D_zLpgQd.js:51977:27)
       at async viteTransformMiddleware (file:///home/workspace/node_modules/vite/dist/node/chunks/dep-D_zLpgQd.js:62105:24)
-6:43:44 PM [vite] Internal server error: Failed to resolve import "leaflet/dist/leaflet.css" from "src/pages/Map.jsx". Does the file exist?
+6:48:22 PM [vite] Internal server error: Transform failed with 1 error:
+/home/workspace/src/pages/Rooms.jsx:140:75: ERROR: Unexpected closing "n" tag does not match opening "div" tag
+  Plugin: vite:esbuild
+  File: /home/workspace/src/pages/Rooms.jsx:140:75
+  
+  Unexpected closing "n" tag does not match opening "div" tag
+  138|                <div className="mt-6 border-t border-white/10 pt-4">
+  139|                  <h3 className="font-medium">Active Room: {activeRoom.title}</h3>
+  140|                  <div className="mt-2 text-sm text-white/70">Pinned media:</n>
+     |                                                                             ^
+  141|                  <div className="mt-1 flex flex-wrap gap-2">
+  142|                    {(activeRoom.pinned_media || []).map((u, i) => (
+  
+      at failureErrorWithLog (/home/workspace/node_modules/esbuild/lib/main.js:1472:15)
+      at /home/workspace/node_modules/esbuild/lib/main.js:755:50
+      at responseCallbacks.<computed> (/home/workspace/node_modules/esbuild/lib/main.js:622:9)
+      at handleIncomingPacket (/home/workspace/node_modules/esbuild/lib/main.js:677:12)
+      at Socket.readFromStdout (/home/workspace/node_modules/esbuild/lib/main.js:600:7)
+      at Socket.emit (node:events:508:28)
+      at addChunk (node:internal/streams/readable:559:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+      at Readable.push (node:internal/streams/readable:390:5)
+      at Pipe.onStreamRead (node:internal/stream_base_commons:189:23)
+6:48:50 PM [vite] Internal server error: Failed to resolve import "leaflet/dist/leaflet.css" from "src/pages/Map.jsx". Does the file exist?
   Plugin: vite:import-analysis
   File: /home/workspace/src/pages/Map.jsx:3:7
   2  |  import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -46,3 +71,26 @@
       at async PluginContainer.transform (file:///home/workspace/node_modules/vite/dist/node/chunks/dep-D_zLpgQd.js:49099:18)
       at async loadAndTransform (file:///home/workspace/node_modules/vite/dist/node/chunks/dep-D_zLpgQd.js:51977:27)
       at async viteTransformMiddleware (file:///home/workspace/node_modules/vite/dist/node/chunks/dep-D_zLpgQd.js:62105:24)
+6:48:50 PM [vite] Internal server error: Transform failed with 1 error:
+/home/workspace/src/pages/Rooms.jsx:140:75: ERROR: Unexpected closing "n" tag does not match opening "div" tag
+  Plugin: vite:esbuild
+  File: /home/workspace/src/pages/Rooms.jsx:140:75
+  
+  Unexpected closing "n" tag does not match opening "div" tag
+  138|                <div className="mt-6 border-t border-white/10 pt-4">
+  139|                  <h3 className="font-medium">Active Room: {activeRoom.title}</h3>
+  140|                  <div className="mt-2 text-sm text-white/70">Pinned media:</n>
+     |                                                                             ^
+  141|                  <div className="mt-1 flex flex-wrap gap-2">
+  142|                    {(activeRoom.pinned_media || []).map((u, i) => (
+  
+      at failureErrorWithLog (/home/workspace/node_modules/esbuild/lib/main.js:1472:15)
+      at /home/workspace/node_modules/esbuild/lib/main.js:755:50
+      at responseCallbacks.<computed> (/home/workspace/node_modules/esbuild/lib/main.js:622:9)
+      at handleIncomingPacket (/home/workspace/node_modules/esbuild/lib/main.js:677:12)
+      at Socket.readFromStdout (/home/workspace/node_modules/esbuild/lib/main.js:600:7)
+      at Socket.emit (node:events:508:28)
+      at addChunk (node:internal/streams/readable:559:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+      at Readable.push (node:internal/streams/readable:390:5)
+      at Pipe.onStreamRead (node:internal/stream_base_commons:189:23)
