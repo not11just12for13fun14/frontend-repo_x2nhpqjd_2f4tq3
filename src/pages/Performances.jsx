@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import Navbar from '../components/Navbar'
 
 const API_BASE = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'
@@ -17,6 +17,55 @@ const disciplines = [
   'Poetry',
 ]
 
+function useRecorder() {
+  const [recording, setRecording] = useState(false)
+  const [previewUrl, setPreviewUrl] = useState('')
+  const [blob, setBlob] = useState(null)
+  const mediaRef = useRef(null)
+  const chunksRef = useRef([])
+  const streamRef = useRef(null)
+  const recorderRef = useRef(null)
+
+  const start = async () => {
+    setPreviewUrl('')
+    setBlob(null)
+    chunksRef.current = []
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true })
+    streamRef.current = stream
+    const rec = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9,opus' })
+    recorderRef.current = rec
+    rec.ondataavailable = (e) => {
+      if (e.data && e.data.size > 0) chunksRef.current.push(e.data)
+    }
+    rec.onstop = () => {
+      const b = new Blob(chunksRef.current, { type: 'video/webm' })
+      setBlob(b)
+      const url = URL.createObjectURL(b)
+      setPreviewUrl(url)
+      // stop tracks
+      streamRef.current.getTracks().forEach(t => t.stop())
+      streamRef.current = null
+    }
+    rec.start(500)
+    setRecording(true)
+  }
+
+  const stop = () => {
+    if (recorderRef.current && recording) {
+      recorderRef.current.stop()
+      setRecording(false)
+    }
+  }
+
+  const reset = () => {
+    setPreviewUrl('')
+    setBlob(null)
+    chunksRef.current = []
+  }
+
+  return { recording, previewUrl, blob, start, stop, reset }
+}
+
 function PerformancesPage() {
   const [form, setForm] = useState({
     title: '',
@@ -32,6 +81,8 @@ function PerformancesPage() {
   const [status, setStatus] = useState('')
   const [items, setItems] = useState([])
   const [q, setQ] = useState({ city: '', discipline: '' })
+
+  const { recording, previewUrl, blob, start, stop, reset } = useRecorder()
 
   const onChange = (e) => setForm({ ...form, [e.target.name]: e.target.value })
 
@@ -88,6 +139,20 @@ function PerformancesPage() {
 
   useEffect(() => { fetchItems() }, [])
 
+  const uploadRecording = async () => {
+    if (!blob) return
+    const fd = new FormData()
+    fd.append('file', new File([blob], `recording-${Date.now()}.webm`, { type: 'video/webm' }))
+    const res = await fetch(`${API_BASE}/upload`, { method: 'POST', body: fd })
+    if (!res.ok) { setStatus('Upload failed'); return }
+    const data = await res.json()
+    // Prepend to recording_urls input
+    const current = form.recording_urls ? form.recording_urls + ', ' : ''
+    setForm({ ...form, recording_urls: current + (data.url || '') })
+    setStatus('Recording uploaded')
+    reset()
+  }
+
   return (
     <div className="min-h-screen bg-slate-950 text-white">
       <Navbar />
@@ -120,6 +185,22 @@ function PerformancesPage() {
                 {status && <span className="text-white/80 text-sm">{status}</span>}
               </div>
             </form>
+
+            <div className="mt-6 border-t border-white/10 pt-4">
+              <h3 className="font-medium">Record a clip (beta)</h3>
+              <div className="mt-2 flex items-center gap-2">
+                {!recording && <button onClick={start} className="rounded bg-emerald-400/90 text-slate-900 px-3 py-1">Start</button>}
+                {recording && <button onClick={stop} className="rounded bg-rose-400/90 text-slate-900 px-3 py-1">Stop</button>}
+                {previewUrl && <button onClick={uploadRecording} className="rounded bg-white/90 text-slate-900 px-3 py-1">Upload</button>}
+                {previewUrl && <button onClick={reset} className="rounded bg-white/20 px-3 py-1">Reset</button>}
+              </div>
+              {previewUrl && (
+                <video className="mt-3 w-full rounded-lg border border-white/10" src={previewUrl} controls />
+              )}
+              {!previewUrl && recording && (
+                <div className="mt-3 text-sm text-white/70">Recording... stop to preview.</div>
+              )}
+            </div>
           </div>
 
           <div className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur">

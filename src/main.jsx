@@ -9,6 +9,7 @@ import ChatPage from './pages/Chat'
 import ContactPage from './pages/Contact'
 import WorkshopsPage from './pages/Workshops'
 import PerformancesPage from './pages/Performances'
+import RoomsPage from './pages/Rooms'
 import './index.css'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
@@ -23,6 +24,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/workshops" element={<WorkshopsPage />} />
         <Route path="/performances" element={<PerformancesPage />} />
+        <Route path="/rooms" element={<RoomsPage />} />
       </Routes>
     </BrowserRouter>
   </React.StrictMode>,

@@ -19,6 +19,7 @@ const Navbar = () => {
             <a href="/map" className="hover:text-white">Map</a>
             <a href="/chat" className="hover:text-white">Chat</a>
             <a href="/performances" className="hover:text-white">Performances</a>
+            <a href="/rooms" className="hover:text-white">Rooms</a>
             <a href="/contact" className="hover:text-white">Contact</a>
             <a href="/workshops" className="hover:text-white">Workshops</a>
             <a href="#about" className="hover:text-white">About</a>
