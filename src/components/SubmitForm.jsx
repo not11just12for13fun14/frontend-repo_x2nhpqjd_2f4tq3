@@ -19,7 +19,7 @@ const SubmitForm = () => {
         description: form.description || undefined,
         tags: form.tags ? form.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
       }
-      const res = await fetch(`${API_BASE}/api/artworks`, {
+      const res = await fetch(`${API_BASE}/artworks`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)

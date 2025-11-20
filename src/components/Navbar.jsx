@@ -1,5 +1,5 @@
 import React from 'react'
-import { Menu, GalleryHorizontalEnd, Sparkles } from 'lucide-react'
+import { Menu, GalleryHorizontalEnd } from 'lucide-react'
 
 const Navbar = () => {
   return (
@@ -15,6 +15,7 @@ const Navbar = () => {
           <nav className="hidden md:flex items-center gap-6 text-sm text-white/80">
             <a href="#gallery" className="hover:text-white">Gallery</a>
             <a href="#submit" className="hover:text-white">Submit</a>
+            <a href="/practices" className="hover:text-white">Practices</a>
             <a href="#about" className="hover:text-white">About</a>
           </nav>
           <button className="md:hidden rounded-lg border border-white/10 p-2 text-white/80">
