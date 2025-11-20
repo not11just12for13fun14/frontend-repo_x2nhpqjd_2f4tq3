@@ -1,5 +1,19 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import Navbar from '../components/Navbar'
+import 'leaflet/dist/leaflet.css'
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
+import MarkerClusterGroup from 'react-leaflet-cluster'
+import L from 'leaflet'
+import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png'
+import markerIcon from 'leaflet/dist/images/marker-icon.png'
+import markerShadow from 'leaflet/dist/images/marker-shadow.png'
+
+// Fix default marker icons for Vite bundling
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: markerIcon2x,
+  iconUrl: markerIcon,
+  shadowUrl: markerShadow,
+})
 
 const API_BASE = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'
 
@@ -7,18 +21,42 @@ function MapPage() {
   const [items, setItems] = useState([])
   const [city, setCity] = useState('')
   const [category, setCategory] = useState('')
+  const [loading, setLoading] = useState(false)
+  const mapRef = useRef(null)
 
   useEffect(() => {
     const fetchData = async () => {
-      const params = new URLSearchParams()
-      if (city) params.append('city', city)
-      if (category) params.append('category', category)
-      const res = await fetch(`${API_BASE}/practices?${params.toString()}`)
-      const data = await res.json()
-      setItems(data.items || [])
+      setLoading(true)
+      try {
+        const params = new URLSearchParams()
+        if (city) params.append('city', city)
+        if (category) params.append('category', category)
+        const res = await fetch(`${API_BASE}/practices?${params.toString()}`)
+        const data = await res.json()
+        setItems(Array.isArray(data.items) ? data.items : [])
+      } catch (e) {
+        console.error('Failed to load practices', e)
+        setItems([])
+      } finally {
+        setLoading(false)
+      }
     }
     fetchData()
   }, [city, category])
+
+  const points = useMemo(() => items.filter(p => typeof p.latitude === 'number' && typeof p.longitude === 'number'), [items])
+
+  // Compute bounds if we have points
+  const bounds = useMemo(() => {
+    if (!points.length) return null
+    const latlngs = points.map(p => [p.latitude, p.longitude])
+    return L.latLngBounds(latlngs)
+  }, [points])
+
+  const initialCenter = useMemo(() => {
+    // Default to roughly Europe/Africa view if no points
+    return [20, 0]
+  }, [])
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
@@ -31,27 +69,56 @@ function MapPage() {
             <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
               <input value={city} onChange={(e)=>setCity(e.target.value)} placeholder="Filter by city" className="w-full rounded-lg bg-slate-900/60 px-3 py-2 text-white placeholder-white/50 outline-none border border-white/10" />
               <input value={category} onChange={(e)=>setCategory(e.target.value)} placeholder="Filter by category" className="w-full rounded-lg bg-slate-900/60 px-3 py-2 text-white placeholder-white/50 outline-none border border-white/10" />
+              <button onClick={()=>{setCity(''); setCategory('')}} className="rounded-lg bg-white/10 hover:bg-white/20 transition px-3 py-2 border border-white/10">Reset</button>
             </div>
           </div>
         </section>
 
         <section className="mx-auto max-w-6xl px-6 pb-16">
-          <div className="relative h-[520px] w-full overflow-hidden rounded-2xl border border-white/10 bg-[linear-gradient(135deg,rgba(56,189,248,0.12),rgba(99,102,241,0.12))]">
-            {/* Simple map placeholder using CSS grid background. In production swap for Mapbox/Leaflet. */}
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.06)_1px,transparent_1px)] [background-size:24px_24px]" />
-            {/* Render pins where lat/lng exists */}
-            {items.filter(p=>p.latitude && p.longitude).map((p, idx) => (
-              <div key={idx} className="absolute -translate-x-1/2 -translate-y-1/2" style={{ left: `${50 + (p.longitude/360)*100}%`, top: `${50 - (p.latitude/180)*100}%` }}>
-                <div className="group">
-                  <div className="h-3 w-3 rounded-full bg-emerald-400 shadow-[0_0_24px_rgba(16,185,129,0.6)]" />
-                  <div className="pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity mt-2 w-56 rounded-xl border border-white/10 bg-slate-900/90 p-3 text-xs text-white/80 backdrop-blur">
-                    <div className="font-semibold text-white">{p.title}</div>
-                    <div className="text-white/70">{p.city}{p.category ? ` • ${p.category}` : ''}</div>
-                    {p.description && <div className="mt-1 line-clamp-3">{p.description}</div>}
-                  </div>
-                </div>
+          <div className="relative h-[520px] w-full overflow-hidden rounded-2xl border border-white/10">
+            <MapContainer
+              center={initialCenter}
+              zoom={2}
+              minZoom={2}
+              className="h-full w-full"
+              worldCopyJump
+              whenCreated={(map) => {
+                mapRef.current = map
+                if (bounds) {
+                  setTimeout(() => map.fitBounds(bounds.pad(0.2)), 0)
+                }
+              }}
+            >
+              <TileLayer
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              />
+
+              {bounds && mapRef.current && (
+                // Fit bounds on updates
+                <FitBounds bounds={bounds} mapRef={mapRef} />
+              )}
+
+              <MarkerClusterGroup chunkedLoading>
+                {points.map((p, idx) => (
+                  <Marker key={idx} position={[p.latitude, p.longitude]}>
+                    <Popup>
+                      <div className="text-sm">
+                        <div className="font-semibold">{p.title || 'Untitled'}</div>
+                        <div className="text-slate-600">{p.city}{p.category ? ` • ${p.category}` : ''}</div>
+                        {p.description && <div className="mt-1">{p.description}</div>}
+                      </div>
+                    </Popup>
+                  </Marker>
+                ))}
+              </MarkerClusterGroup>
+            </MapContainer>
+
+            {loading && (
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-slate-950/30">
+                <div className="h-10 w-10 animate-spin rounded-full border-2 border-white/30 border-t-white" />
               </div>
-            ))}
+            )}
           </div>
 
           {/* List fallback */}
@@ -68,6 +135,19 @@ function MapPage() {
       </main>
     </div>
   )
+}
+
+function FitBounds({ bounds, mapRef }) {
+  useEffect(() => {
+    if (mapRef.current && bounds) {
+      try {
+        mapRef.current.fitBounds(bounds.pad(0.2))
+      } catch (e) {
+        // ignore
+      }
+    }
+  }, [bounds, mapRef])
+  return null
 }
 
 export default MapPage
