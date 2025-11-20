@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import Navbar from '../components/Navbar'
 
 const API_BASE = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'
@@ -18,12 +18,26 @@ function toWsUrl(path) {
   }
 }
 
+function Avatar({ src, name }) {
+  const initials = (name || 'A').split(' ').map(s=>s[0]).join('').slice(0,2).toUpperCase()
+  return (
+    <div className="h-8 w-8 rounded-full bg-white/10 border border-white/10 overflow-hidden flex items-center justify-center shrink-0">
+      {src ? (
+        <img src={src} alt={name || 'avatar'} className="h-full w-full object-cover" onError={(e)=>{e.currentTarget.style.display='none'}}/>
+      ) : (
+        <span className="text-[10px] text-white/70">{initials}</span>
+      )}
+    </div>
+  )
+}
+
 function RoomsPage() {
   const [form, setForm] = useState({ title: '', discipline: '' })
   const [rooms, setRooms] = useState([])
   const [filters, setFilters] = useState({ discipline: '', status: 'open' })
   const [activeRoom, setActiveRoom] = useState(null)
   const [author, setAuthor] = useState('')
+  const [avatar, setAvatar] = useState('')
   const [text, setText] = useState('')
   const [media, setMedia] = useState('')
   const [pin, setPin] = useState('')
@@ -95,7 +109,7 @@ function RoomsPage() {
     if (!activeRoom) return
     await fetch(`${API_BASE}/rooms/${activeRoom._id}/messages`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
-        room_id: activeRoom._id, author: author || 'Anon', text: text || undefined,
+        room_id: activeRoom._id, author: author || 'Anon', avatar: avatar || undefined, text: text || undefined,
         media_urls: media ? media.split(',').map(u=>u.trim()).filter(Boolean) : []
       })
     })
@@ -111,6 +125,18 @@ function RoomsPage() {
     const fd = new FormData(); fd.append('url', pin)
     const res = await fetch(`${API_BASE}/rooms/${activeRoom._id}/pin`, { method: 'POST', body: fd })
     if (res.ok) { setPin('') }
+  }
+
+  const flagMessage = async (m) => {
+    await fetch(`${API_BASE}/rooms/${activeRoom._id}/messages/${m._id}/flag`, { method: 'POST' })
+    setActiveRoom(r => r ? { ...r, messages: (r.messages||[]).map(x => x._id===m._id ? { ...x, flagged: true } : x) } : r)
+  }
+
+  const deleteMessage = async (m) => {
+    const ok = confirm('Delete this message?')
+    if (!ok) return
+    const res = await fetch(`${API_BASE}/rooms/${activeRoom._id}/messages/${m._id}`, { method: 'DELETE' })
+    if (res.ok) setActiveRoom(r => r ? { ...r, messages: (r.messages||[]).filter(x => x._id!==m._id) } : r)
   }
 
   return (
@@ -137,7 +163,7 @@ function RoomsPage() {
             {activeRoom && (
               <div className="mt-6 border-t border-white/10 pt-4">
                 <h3 className="font-medium">Active Room: {activeRoom.title}</h3>
-                <div className="mt-2 text-sm text-white/70">Pinned media:</n>
+                <div className="mt-2 text-sm text-white/70">Pinned media:</div>
                 <div className="mt-1 flex flex-wrap gap-2">
                   {(activeRoom.pinned_media || []).map((u, i) => (
                     <a key={i} href={u} target="_blank" className="rounded bg-white/10 px-2 py-1 text-xs hover:bg-white/20">Pin {i+1}</a>
@@ -186,24 +212,34 @@ function RoomsPage() {
             {activeRoom && (
               <div className="mt-6">
                 <h3 className="font-medium">Chat</h3>
-                <form onSubmit={sendMessage} className="mt-2 grid grid-cols-1 md:grid-cols-4 gap-2">
+                <form onSubmit={sendMessage} className="mt-2 grid grid-cols-1 md:grid-cols-6 gap-2">
                   <input value={author} onChange={(e)=>setAuthor(e.target.value)} placeholder="Your name" className="rounded-lg bg-slate-900/60 px-3 py-2 border border-white/10" />
+                  <input value={avatar} onChange={(e)=>setAvatar(e.target.value)} placeholder="Avatar URL (optional)" className="rounded-lg bg-slate-900/60 px-3 py-2 border border-white/10 md:col-span-2" />
                   <input value={media} onChange={(e)=>setMedia(e.target.value)} placeholder="Media URLs" className="rounded-lg bg-slate-900/60 px-3 py-2 border border-white/10 md:col-span-2" />
-                  <input value={text} onChange={(e)=>{setText(e.target.value); notifyTyping()}} placeholder="Message" className="rounded-lg bg-slate-900/60 px-3 py-2 border border-white/10 md:col-span-3" />
+                  <input value={text} onChange={(e)=>{setText(e.target.value); notifyTyping()}} placeholder="Message" className="rounded-lg bg-slate-900/60 px-3 py-2 border border-white/10 md:col-span-5" />
                   <button className="rounded-lg bg-white/90 text-slate-900 px-5 py-2 font-medium">Send</button>
                 </form>
                 <div className="mt-3 space-y-2 max-h-80 overflow-auto pr-1">
                   {(activeRoom.messages || []).map((m) => (
-                    <div key={m._id} className="rounded border border-white/10 bg-slate-900/60 p-2">
-                      <div className="text-xs text-white/60">{m.author}</div>
-                      {m.text && <div className="text-sm">{m.text}</div>}
-                      {m.media_urls && m.media_urls.length>0 && (
-                        <div className="mt-1 flex flex-wrap gap-2">
-                          {m.media_urls.map((u, i) => (
-                            <a key={i} href={u} target="_blank" className="rounded bg-white/10 px-2 py-1 text-xs hover:bg-white/20">Media {i+1}</a>
-                          ))}
+                    <div key={m._id} className={`rounded border border-white/10 bg-slate-900/60 p-2 ${m.flagged ? 'ring-1 ring-rose-400/50' : ''}`}>
+                      <div className="flex items-center gap-2">
+                        <Avatar src={m.avatar} name={m.author} />
+                        <div className="flex-1">
+                          <div className="text-xs text-white/60">{m.author} {m.flagged && <span className="ml-2 inline-flex items-center rounded bg-rose-500/20 px-2 py-0.5 text-[10px] text-rose-200">FLAGGED</span>}</div>
+                          {m.text && <div className="text-sm">{m.text}</div>}
+                          {m.media_urls && m.media_urls.length>0 && (
+                            <div className="mt-1 flex flex-wrap gap-2">
+                              {m.media_urls.map((u, i) => (
+                                <a key={i} href={u} target="_blank" className="rounded bg-white/10 px-2 py-1 text-xs hover:bg-white/20">Media {i+1}</a>
+                              ))}
+                            </div>
+                          )}
+                          <div className="mt-1 flex gap-3 text-[11px] text-white/60">
+                            {!m.flagged && <button onClick={()=>flagMessage(m)} className="hover:text-rose-300">Flag</button>}
+                            <button onClick={()=>deleteMessage(m)} className="hover:text-rose-300">Delete</button>
+                          </div>
                         </div>
-                      )}
+                      </div>
                     </div>
                   ))}
                 </div>
