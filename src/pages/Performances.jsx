@@ -1,0 +1,171 @@
+import React, { useEffect, useMemo, useState } from 'react'
+import Navbar from '../components/Navbar'
+
+const API_BASE = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'
+
+const disciplines = [
+  'Architecture',
+  'Performing Art',
+  'Dance',
+  'Music',
+  'Cinema',
+  'Photography',
+  'Theater',
+  'Littérature',
+  'Puppets Art',
+  'Slam',
+  'Poetry',
+]
+
+function PerformancesPage() {
+  const [form, setForm] = useState({
+    title: '',
+    artist: '',
+    discipline: '',
+    city: '',
+    scheduled_at: '',
+    live_url: '',
+    recording_urls: '',
+    description: '',
+    tags: '',
+  })
+  const [status, setStatus] = useState('')
+  const [items, setItems] = useState([])
+  const [q, setQ] = useState({ city: '', discipline: '' })
+
+  const onChange = (e) => setForm({ ...form, [e.target.name]: e.target.value })
+
+  const parsedRecordingUrls = useMemo(() => {
+    return form.recording_urls
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+  }, [form.recording_urls])
+
+  const parsedTags = useMemo(() => {
+    return form.tags
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+  }, [form.tags])
+
+  const submit = async (e) => {
+    e.preventDefault()
+    setStatus('')
+    const payload = {
+      title: form.title,
+      artist: form.artist,
+      discipline: form.discipline || undefined,
+      city: form.city || undefined,
+      scheduled_at: form.scheduled_at || undefined,
+      live_url: form.live_url || undefined,
+      recording_urls: parsedRecordingUrls,
+      description: form.description || undefined,
+      tags: parsedTags,
+    }
+    const res = await fetch(`${API_BASE}/performances`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    if (res.ok) {
+      setStatus('Performance submitted!')
+      setForm({ title: '', artist: '', discipline: '', city: '', scheduled_at: '', live_url: '', recording_urls: '', description: '', tags: '' })
+      fetchItems()
+    } else {
+      setStatus('Submission failed')
+    }
+  }
+
+  const fetchItems = async () => {
+    const url = new URL(`${API_BASE}/performances`)
+    if (q.city) url.searchParams.set('city', q.city)
+    if (q.discipline) url.searchParams.set('discipline', q.discipline)
+    const res = await fetch(url)
+    const data = await res.json().catch(() => ({ items: [] }))
+    setItems(Array.isArray(data.items) ? data.items : [])
+  }
+
+  useEffect(() => { fetchItems() }, [])
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-white">
+      <Navbar />
+      <main className="pt-20">
+        <section className="mx-auto max-w-6xl px-6 py-10">
+          <h1 className="text-3xl font-bold">Live & Multidisciplinary Performances</h1>
+          <p className="mt-2 text-white/80">Share your live performance details, streaming links, and recordings. Browse community performances across disciplines.</p>
+        </section>
+
+        <section className="mx-auto max-w-6xl px-6 grid lg:grid-cols-2 gap-8 pb-16">
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur">
+            <h2 className="text-xl font-semibold">Submit a Performance</h2>
+            <form onSubmit={submit} className="mt-4 space-y-3">
+              <input name="title" value={form.title} onChange={onChange} placeholder="Title" className="w-full rounded-lg bg-slate-900/60 px-3 py-2 border border-white/10" required />
+              <input name="artist" value={form.artist} onChange={onChange} placeholder="Artist / Group" className="w-full rounded-lg bg-slate-900/60 px-3 py-2 border border-white/10" required />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <select name="discipline" value={form.discipline} onChange={onChange} className="w-full rounded-lg bg-slate-900/60 px-3 py-2 border border-white/10">
+                  <option value="">Discipline</option>
+                  {disciplines.map(d => <option key={d} value={d}>{d}</option>)}
+                </select>
+                <input name="city" value={form.city} onChange={onChange} placeholder="City" className="w-full rounded-lg bg-slate-900/60 px-3 py-2 border border-white/10" />
+              </div>
+              <input name="scheduled_at" value={form.scheduled_at} onChange={onChange} placeholder="Scheduled date/time" className="w-full rounded-lg bg-slate-900/60 px-3 py-2 border border-white/10" />
+              <input name="live_url" value={form.live_url} onChange={onChange} placeholder="Live stream URL (YouTube, Twitch, etc.)" className="w-full rounded-lg bg-slate-900/60 px-3 py-2 border border-white/10" />
+              <textarea name="recording_urls" value={form.recording_urls} onChange={onChange} placeholder="Recording URLs (comma-separated)" rows="2" className="w-full rounded-lg bg-slate-900/60 px-3 py-2 border border-white/10" />
+              <textarea name="description" value={form.description} onChange={onChange} placeholder="Short description" rows="3" className="w-full rounded-lg bg-slate-900/60 px-3 py-2 border border-white/10" />
+              <input name="tags" value={form.tags} onChange={onChange} placeholder="Tags (comma-separated)" className="w-full rounded-lg bg-slate-900/60 px-3 py-2 border border-white/10" />
+              <div className="flex items-center gap-3">
+                <button className="rounded-lg bg-white/90 text-slate-900 px-5 py-2 font-medium">Submit</button>
+                {status && <span className="text-white/80 text-sm">{status}</span>}
+              </div>
+            </form>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold">Community Performances</h2>
+              <div className="flex gap-2">
+                <input value={q.city} onChange={(e)=>setQ({ ...q, city: e.target.value })} placeholder="Filter by city" className="rounded-lg bg-slate-900/60 px-3 py-2 border border-white/10" />
+                <select value={q.discipline} onChange={(e)=>setQ({ ...q, discipline: e.target.value })} className="rounded-lg bg-slate-900/60 px-3 py-2 border border-white/10">
+                  <option value="">All</option>
+                  {disciplines.map(d => <option key={d} value={d}>{d}</option>)}
+                </select>
+                <button onClick={fetchItems} className="rounded-lg bg-white/90 text-slate-900 px-4">Apply</button>
+              </div>
+            </div>
+            <ul className="mt-4 space-y-3">
+              {items.map((p) => (
+                <li key={p._id || p.title} className="rounded-xl border border-white/10 bg-slate-900/40 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="text-lg font-semibold">{p.title}</div>
+                      <div className="text-sm text-white/70">{p.artist} • {p.discipline || '—'} {p.city ? `• ${p.city}` : ''}</div>
+                    </div>
+                    {p.live_url && (
+                      <a href={p.live_url} target="_blank" className="text-cyan-300 hover:text-cyan-200 underline">Live</a>
+                    )}
+                  </div>
+                  {p.description && <p className="mt-2 text-white/80 text-sm">{p.description}</p>}
+                  {Array.isArray(p.recording_urls) && p.recording_urls.length > 0 && (
+                    <div className="mt-2 text-sm">
+                      <div className="text-white/70">Recordings:</div>
+                      <div className="flex flex-wrap gap-2 mt-1">
+                        {p.recording_urls.map((u, idx) => (
+                          <a key={idx} href={u} target="_blank" className="rounded bg-white/10 px-2 py-1 text-xs hover:bg-white/20">Link {idx+1}</a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </li>
+              ))}
+              {items.length === 0 && <li className="text-white/70">No performances yet.</li>}
+            </ul>
+          </div>
+        </section>
+      </main>
+    </div>
+  )
+}
+
+export default PerformancesPage
